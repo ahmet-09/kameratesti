@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Yemekhane QR (WebView)</title>
+  <style>
+    body { font-family: Arial; padding: 12px; }
+    input, button { padding: 8px; margin: 6px 0; width: 240px; }
+    #status { margin-top:10px; white-space:pre-wrap; }
+  </style>
+</head>
+<body>
+  <h3>QR_ID Gönder (test)</h3>
+  <input id="qrInput" placeholder="QR_ID (ör: QR0001)"/>
+  <button id="sendBtn">Gönder (form POST)</button>
+  <div id="status"></div>
+
+  <!-- gizli form (post için) -->
+  <form id="postForm" method="post" action="https://script.google.com/macros/s/AKfycbxVg-ADLOSpV7PXH8m_tacslUSLWtivygT7kv0DDhby4RyKlP0yo7qOrMyjDShGdVz1/exec">
+    <input type="hidden" name="qr_id" id="form_qr" value="">
+  </form>
+
+  <script>
+    const form = document.getElementById('postForm');
+    const formQr = document.getElementById('form_qr');
+    const status = document.getElementById('status');
+    const sendBtn = document.getElementById('sendBtn');
+
+    // Eğer GitHub Pages'den direk POST yaparken WebView response'u göstermede sorun olursa,
+    // form.submit() yine sunucuya veri gönderir (response JS tarafında okunmayabilir).
+    sendBtn.addEventListener('click', function(){
+      const qr = document.getElementById('qrInput').value.trim();
+      if(!qr) { alert('QR_ID gir'); return; }
+      formQr.value = qr;
+      status.textContent = 'Gönderiliyor…';
+      // form submit: tarayıcı sunucuya POST yapar
+      form.submit();
+
+      // NOT: form.submit() sayfayı yönlendirebilir. Eğer yönlendirme istenmiyorsa
+      // form.target = "_blank" yapabilirsin; WebView içinde davranış farklı olabilir.
+      // Burada amaç: Apps Script'e veri ulaşsın.
+    });
+
+    // Alternatif: eğer form.submit sayfayı değiştirdi ise, kullanıcı geri dönünce status güncellemesi göremeyebilir.
+    // Bu yüzden debug/testing için fetch no-cors kullanıp arka planda gönderme de deneyebilirsin:
+    function sendNoCors(qr) {
+      fetch(form.action, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'qr_id=' + encodeURIComponent(qr)
+      }).then(() => {
+        status.textContent = 'Gönderildi (no-cors).';
+      }).catch(e => status.textContent = 'Hata: ' + e);
+    }
+  </script>
+</body>
+</html>
