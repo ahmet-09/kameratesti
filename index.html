@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Yemekhane QR Gönder</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    input, button { padding: 8px; margin: 5px; width: 200px; }
+    pre { background: #f4f4f4; padding: 10px; }
+  </style>
+</head>
+<body>
+  <h2>QR_ID Gönderimi</h2>
+  <input type="text" id="qrInput" placeholder="QR_ID girin (ör: QR0001)">
+  <button id="sendBtn">Gönder</button>
+  <pre id="output"></pre>
+
+  <script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/XXXX/exec"; // Web App URL
+
+    document.getElementById('sendBtn').addEventListener('click', () => {
+      const qrId = document.getElementById('qrInput').value.trim();
+      if(!qrId) return alert("QR_ID girin");
+
+      fetch(SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ qr_id: qrId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('output').textContent = JSON.stringify(data, null, 2);
+      })
+      .catch(err => {
+        document.getElementById('output').textContent = "Hata: " + err;
+      });
+    });
+  </script>
+</body>
+</html>
