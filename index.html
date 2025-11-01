@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>QR Okuyucu Test</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
+  <style>
+    body { text-align:center; font-family: Arial; margin:20px; }
+    #reader { width:300px; margin:auto; }
+    #result { margin-top:20px; font-weight:bold; }
+  </style>
+</head>
+<body>
+  <h2>📷 QR Okuyucu</h2>
+  <div id="reader"></div>
+  <div id="result">QR okutulacak...</div>
+
+  <script>
+    function onScanSuccess(decodedText, decodedResult) {
+      document.getElementById('result').innerText = "✅ QR okundu: " + decodedText;
+
+      // Eğer ileride backend'e göndereceksek buraya fetch eklenebilir:
+      // fetch("https://script.google.com/macros/s/.../exec?id=" + encodeURIComponent(decodedText))
+      //   .then(res => res.text())
+      //   .then(txt => { document.getElementById('result').innerText = txt; });
+    }
+
+    function onScanError(errorMessage) {
+      // Hatalar genellikle göz ardı edilebilir
+    }
+
+    Html5Qrcode.getCameras().then(cameras => {
+      if(cameras && cameras.length){
+        const html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start(
+          cameras[0].id,
+          { fps:10, qrbox:250 },
+          onScanSuccess,
+          onScanError
+        );
+      } else {
+        alert("Kamera bulunamadı!");
+      }
+    }).catch(err => {
+      alert("Kamera açma hatası: " + err);
+    });
+  </script>
+</body>
+</html>
