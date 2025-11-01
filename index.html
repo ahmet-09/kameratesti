@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Yemekhane QR Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    input, button { padding: 8px; margin: 5px 0; }
+    pre { background: #f4f4f4; padding: 10px; }
+  </style>
+</head>
+<body>
+  <h2>Yemekhane QR Test</h2>
+  <label>QR_ID girin:</label>
+  <input type="text" id="qrInput" placeholder="Ör: QR0001"/>
+  <button id="sendBtn">Gönder</button>
+  <pre id="output"></pre>
+
+  <script>
+    const webAppUrl = "https://script.google.com/macros/s/AKfycbxNR3odx8iJ-MvYMJYYg37CySasICy8KteFkJ_zxYPb7VITTpDtW6yiJs9f_XRZSnEiBQ/exec"; // Apps Script Web App URL
+
+    document.getElementById('sendBtn').addEventListener('click', async () => {
+      const qrId = document.getElementById('qrInput').value.trim();
+      if (!qrId) return alert("QR_ID girin");
+
+      try {
+        const res = await fetch(webAppUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ qr_id: qrId })
+        });
+        const data = await res.json();
+        document.getElementById('output').textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        document.getElementById('output').textContent = "Hata: " + err;
+      }
+    });
+  </script>
+</body>
+</html>
