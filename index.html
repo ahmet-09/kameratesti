@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Okul Yemek Takip Sistemi</title>
+  <!-- Güvenilir CDN kullanıyoruz -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    body { 
+      text-align: center; 
+      font-family: Arial, sans-serif; 
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+      background: rgba(255,255,255,0.1);
+      padding: 30px;
+      border-radius: 15px;
+      backdrop-filter: blur(10px);
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      margin-bottom: 30px;
+      opacity: 0.9;
+    }
+    #reader { 
+      width: 100%;
+      max-width: 300px; 
+      margin: 20px auto;
+      border: 3px solid white;
+      border-radius: 10px;
+      overflow: hidden;
+      background: black;
+      min-height: 300px;
+    }
+    #result { 
+      margin: 20px 0; 
+      padding: 20px;
+      font-weight: bold; 
+      background: rgba(255,255,255,0.2);
+      border-radius: 10px;
+      border: 2px solid rgba(255,255,255,0.3);
+    }
+    .success { 
+      background: rgba(76, 175, 80, 0.3); 
+      border-color: rgba(76, 175, 80, 0.6);
+    }
+    .error { 
+      background: rgba(244, 67, 54, 0.3); 
+      border-color: rgba(244, 67, 54, 0.6);
+    }
+    .info { 
+      background: rgba(33, 150, 243, 0.3); 
+      border-color: rgba(33, 150, 243, 0.6);
+    }
+    button {
+      padding: 12px 25px;
+      margin: 10px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+    }
+    button:hover {
+      background: #45a049;
+      transform: scale(1.05);
+    }
+    button:disabled {
+      background: #cccccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+    #status {
+      margin: 10px 0;
+      font-size: 14px;
+      opacity: 0.8;
+    }
+    .loading {
+      color: #ffeb3b;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏫 Okul Yemek Takip</h1>
+    <p class="subtitle">QR kodunu okutun → Yemek kaydı yapılsın</p>
+    
+    <div id="reader"></div>
+    <div id="status" class="loading">QR kütüphanesi yükleniyor...</div>
+    
+    <div id="result" class="info">
+      Sistem hazırlanıyor...
+    </div>
+    
+    <button onclick="startScanner()" id="startBtn" disabled>🎥 Taramayı Başlat</button>
+    <button onclick="stopScanner()" id="stopBtn" disabled>⏹️ Taramayı Durdur</button>
+  </div>
+
+  <script>
+    // Global değişkenler
+    let html5QrCode = null;
+    let isScanning = false;
+    let isLibraryLoaded = false;
+
+    // Kütüphane yüklendikten sonra çalışacak
+    function checkLibrary() {
+      const statusElement = document.getElementById('status');
+      const startBtn = document.getElementById('startBtn');
+      
+      if (typeof Html5Qrcode !== 'undefined') {
+        statusElement.textContent = '✅ QR kütüphanesi yüklendi!';
+        statusElement.className = 'info';
+        startBtn.disabled = false;
+        isLibraryLoaded = true;
+        
+        // Otomatik başlatma
+        setTimeout(startScanner, 1000);
+      } else {
+        statusElement.textContent = '❌ QR kütüphanesi yüklenemedi';
+        statusElement.className = 'error';
+        
+        // Alternatif CDN deneyelim
+        setTimeout(loadAlternativeLibrary, 2000);
+      }
+    }
+
+    // Alternatif kütüphane yükleme
+    function loadAlternativeLibrary() {
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js';
+      script.onload = checkLibrary;
+      script.onerror = function() {
+        document.getElementById('status').textContent = '❌ Tüm CDNler başarısız oldu';
+        document.getElementById('status').className = 'error';
+      };
+      document.head.appendChild(script);
+    }
+
+    async function startScanner() {
+      if (!isLibraryLoaded || isScanning) return;
+
+      const statusElement = document.getElementById('status');
+      const resultElement = document.getElementById('result');
+      const startBtn = document.getElementById('startBtn');
+      const stopBtn = document.getElementById('stopBtn');
+      
+      try {
+        statusElement.textContent = "📷 Kameralar kontrol ediliyor...";
+        
+        const cameras = await Html5Qrcode.getCameras();
+        
+        if (cameras.length === 0) {
+          resultElement.innerHTML = '<div class="error">❌ Hiç kamera bulunamadı!</div>';
+          return;
+        }
+
+        statusElement.textContent = "🔄 Kamera başlatılıyor...";
+        html5QrCode = new Html5Qrcode("reader");
+        
+        await html5QrCode.start(
+          cameras[0].id,
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 }
+          },
+          onScanSuccess,
+          onScanFailure
+        );
+
+        isScanning = true;
+        resultElement.innerHTML = '<div class="info">👆 Öğrenci QR kodunu kameraya gösterin</div>';
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        statusElement.textContent = '✅ Taramaya hazır - QR gösterin';
+
+      } catch (err) {
+        console.error('Scanner error:', err);
+        resultElement.innerHTML = `<div class="error">❌ Kamera hatası: ${err.message}</div>`;
+        statusElement.textContent = '❌ Kamera başlatılamadı';
+      }
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+      const resultElement = document.getElementById('result');
+      const studentId = decodedText.trim();
+      
+      // TEST MODU - Gerçek API bağlantısı henüz yok
+      resultElement.innerHTML = `
+        <div class="success">
+          ✅ <strong>QR KOD OKUNDU!</strong><br>
+          <strong>Öğrenci ID: ${studentId}</strong><br>
+          <small>Öğrenci: Ahmet Yılmaz (Test Verisi)</small><br>
+          <small>Sınıf: 10-A | Tarih: ${new Date().toLocaleDateString('tr-TR')}</small><br>
+          <em>Backend bağlantısı kurulunca gerçek kayıt yapılacak</em>
+        </div>
+      `;
+
+      // 4 saniye sonra yeni tarama için hazır ol
+      setTimeout(() => {
+        if (isScanning) {
+          resultElement.innerHTML = '<div class="info">👆 Yeni QR kodunu okutun</div>';
+        }
+      }, 4000);
+    }
+
+    function onScanFailure(error) {
+      // Hataları sessizce handle et (sürekli tarama sırasında normal)
+      // console.log('Scan error:', error);
+    }
+
+    async function stopScanner() {
+      if (html5QrCode && isScanning) {
+        try {
+          await html5QrCode.stop();
+          isScanning = false;
+          document.getElementById('result').innerHTML = '<div class="info">⏹️ Tarama durduruldu</div>';
+          document.getElementById('startBtn').disabled = false;
+          document.getElementById('stopBtn').disabled = true;
+          document.getElementById('status').textContent = 'Taramaya hazır';
+        } catch (err) {
+          console.error('Stop error:', err);
+        }
+      }
+    }
+
+    // Sayfa yüklendiğinde kütüphaneyi kontrol et
+    window.addEventListener('load', function() {
+      setTimeout(checkLibrary, 500);
+    });
+
+    // Sayfadan çıkarken temizlik
+    window.addEventListener('beforeunload', function() {
+      if (html5QrCode && isScanning) {
+        html5QrCode.stop().catch(() => {});
+      }
+    });
+  </script>
+</body>
+</html>
