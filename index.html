@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>QR Okuyucu Test</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
+  <style>
+    body { 
+      text-align: center; 
+      font-family: Arial, sans-serif; 
+      margin: 20px; 
+      background: #f5f5f5;
+    }
+    #reader { 
+      width: 100%;
+      max-width: 400px; 
+      margin: 20px auto;
+      border: 2px solid #333;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    #result { 
+      margin-top: 20px; 
+      padding: 15px;
+      font-weight: bold; 
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      max-width: 400px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .success { color: green; }
+    .error { color: red; }
+    .info { color: blue; }
+    button {
+      padding: 10px 20px;
+      margin: 10px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    .loading {
+      color: #666;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <h2>📷 QR Kod Okuyucu</h2>
+  <div id="reader"></div>
+  <div id="result" class="loading">Kamera yükleniyor...</div>
+  <button onclick="stopScanner()">❌ Taramayı Durdur</button>
+  <button onclick="startScanner()">🔄 Tekrar Başlat</button>
+
+  <script>
+    // Global değişkenler
+    let html5QrCode = null;
+    let isScanning = false;
+
+    // Kütüphane yüklendikten sonra çalışacak
+    function initializeScanner() {
+      const resultElement = document.getElementById('result');
+      
+      // Html5Qrcode kütüphanesinin yüklendiğinden emin ol
+      if (typeof Html5Qrcode === 'undefined') {
+        resultElement.innerHTML = '<div class="error">❌ QR kütüphanesi yüklenemedi</div>';
+        return;
+      }
+
+      resultElement.innerHTML = '<div class="info">✅ QR okuyucu hazır! Tarama başlatılıyor...</div>';
+      
+      // Kısa bir bekleme sonrası taramayı başlat
+      setTimeout(startScanner, 1000);
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+      console.log('QR Okundu:', decodedText);
+      
+      const resultElement = document.getElementById('result');
+      resultElement.innerHTML = `
+        <div class="success">
+          ✅ <strong>QR Kod Okundu!</strong><br>
+          <small>İçerik:</small><br>
+          <code style="word-break: break-all;">${decodedText}</code>
+        </div>
+      `;
+
+      // Opsiyonel: Okunduktan sonra taramayı durdur
+      // setTimeout(stopScanner, 3000);
+    }
+
+    function onScanFailure(error) {
+      // Hataları sessizce handle et (genellikle tarama devam ederken oluşan hatalar)
+      console.log('QR Scan error:', error);
+    }
+
+    async function startScanner() {
+      if (isScanning) {
+        console.log('Zaten tarama yapılıyor');
+        return;
+      }
+
+      const resultElement = document.getElementById('result');
+      
+      try {
+        // Kameraları al
+        const cameras = await Html5Qrcode.getCameras();
+        
+        if (!cameras || cameras.length === 0) {
+          resultElement.innerHTML = '<div class="error">❌ Hiç kamera bulunamadı!</div>';
+          return;
+        }
+
+        // QR okuyucuyu oluştur
+        html5QrCode = new Html5Qrcode("reader");
+        
+        // Kamerayı başlat ve taramaya başla
+        await html5QrCode.start(
+          cameras[0].id,
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 }
+          },
+          onScanSuccess,
+          onScanFailure
+        );
+        
+        isScanning = true;
+        resultElement.innerHTML = '<div class="info">👆 QR kodu kameraya gösterin</div>';
+        
+      } catch (err) {
+        console.error('Scanner start error:', err);
+        resultElement.innerHTML = `<div class="error">❌ Hata: ${err.message}</div>`;
+        isScanning = false;
+      }
+    }
+
+    async function stopScanner() {
+      if (html5QrCode && isScanning) {
+        try {
+          await html5QrCode.stop();
+          isScanning = false;
+          document.getElementById('result').innerHTML = '<div class="info">⏹️ Tarama durduruldu</div>';
+        } catch (err) {
+          console.error('Stop error:', err);
+        }
+      }
+    }
+
+    // Sayfa yüklendiğinde kontrol et
+    window.addEventListener('load', function() {
+      // Kütüphane yüklendiyse başlat, yoksa 2 saniye sonra tekrar dene
+      if (typeof Html5Qrcode !== 'undefined') {
+        initializeScanner();
+      } else {
+        document.getElementById('result').innerHTML = '<div class="loading">Kütüphane yükleniyor...</div>';
+        setTimeout(initializeScanner, 2000);
+      }
+    });
+
+    // Sayfadan çıkarken temizlik yap
+    window.addEventListener('beforeunload', function() {
+      if (html5QrCode && isScanning) {
+        html5QrCode.stop().catch(() => {});
+      }
+    });
+  </script>
+</body>
+</html>
