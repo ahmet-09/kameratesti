@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Okul Yemek Takip Sistemi</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    body { 
+      text-align: center; 
+      font-family: Arial, sans-serif; 
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+      background: rgba(255,255,255,0.1);
+      padding: 30px;
+      border-radius: 15px;
+      backdrop-filter: blur(10px);
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      margin-bottom: 30px;
+      opacity: 0.9;
+    }
+    #reader { 
+      width: 100%;
+      max-width: 300px; 
+      margin: 20px auto;
+      border: 3px solid white;
+      border-radius: 10px;
+      overflow: hidden;
+      background: black;
+      min-height: 300px;
+    }
+    #result { 
+      margin: 20px 0; 
+      padding: 20px;
+      font-weight: bold; 
+      background: rgba(255,255,255,0.2);
+      border-radius: 10px;
+      border: 2px solid rgba(255,255,255,0.3);
+    }
+    .success { 
+      background: rgba(76, 175, 80, 0.3); 
+      border-color: rgba(76, 175, 80, 0.6);
+    }
+    .error { 
+      background: rgba(244, 67, 54, 0.3); 
+      border-color: rgba(244, 67, 54, 0.6);
+    }
+    .info { 
+      background: rgba(33, 150, 243, 0.3); 
+      border-color: rgba(33, 150, 243, 0.6);
+    }
+    button {
+      padding: 12px 25px;
+      margin: 10px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+    }
+    button:hover {
+      background: #45a049;
+      transform: scale(1.05);
+    }
+    button:disabled {
+      background: #cccccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+    #status {
+      margin: 10px 0;
+      font-size: 14px;
+      opacity: 0.8;
+    }
+    .student-info {
+      background: rgba(255,255,255,0.15);
+      padding: 15px;
+      border-radius: 8px;
+      margin: 10px 0;
+    }
+    .proxy-selector {
+      margin: 15px 0;
+      padding: 10px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px;
+    }
+    select {
+      padding: 8px;
+      border-radius: 5px;
+      border: none;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏫 Okul Yemek Takip</h1>
+    <p class="subtitle">QR kodunu okutun → Yemek kaydı otomatik yapılsın</p>
+    
+    <div class="proxy-selector">
+      <label>CORS Proxy Seçin:</label>
+      <select id="proxySelector" onchange="changeProxy()">
+        <option value="1">Proxy 1 - crossorigin.me</option>
+        <option value="2">Proxy 2 - cors-anywhere</option>
+        <option value="3">Proxy 3 - corsproxy.io</option>
+      </select>
+    </div>
+    
+    <div id="reader"></div>
+    <div id="status">Sistem hazırlanıyor...</div>
+    
+    <div id="result" class="info">
+      Proxy seçin ve taramayı başlatın...
+    </div>
+    
+    <button onclick="startScanner()" id="startBtn">🎥 Taramayı Başlat</button>
+    <button onclick="stopScanner()" id="stopBtn" disabled>⏹️ Taramayı Durdur</button>
+    <button onclick="testProxy()" id="testBtn">🧪 Proxy Testi</button>
+  </div>
+
+  <script>
+    let html5QrCode = null;
+    let isScanning = false;
+
+    // ORJİNAL APPS SCRIPT URL
+    const ORIGINAL_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxktlOJnw6H6_8mlFkMxEgClWs3JslU2ApKA-GouwxsOIzVvYM2BanWsOqgrWj2UQhh/exec';
+
+    // 3 FARKLI CORS PROXY SEÇENEĞİ
+    const PROXY_OPTIONS = {
+      1: 'https://api.crossorigin.me/' + ORIGINAL_SCRIPT_URL,
+      2: 'https://cors-anywhere.herokuapp.com/' + ORIGINAL_SCRIPT_URL,
+      3: 'https://corsproxy.io/?' + encodeURIComponent(ORIGINAL_SCRIPT_URL)
+    };
+
+    // Şu anki proxy
+    let currentScriptUrl = PROXY_OPTIONS[1];
+
+    function changeProxy() {
+      const selector = document.getElementById('proxySelector');
+      const selectedProxy = selector.value;
+      currentScriptUrl = PROXY_OPTIONS[selectedProxy];
+      
+      document.getElementById('status').textContent = `Proxy ${selectedProxy} seçildi - Test ediliyor...`;
+      document.getElementById('result').innerHTML = '<div class="info">🔄 Yeni proxy test ediliyor...</div>';
+      
+      testProxyConnection();
+    }
+
+    async function testProxyConnection() {
+      const statusElement = document.getElementById('status');
+      const testBtn = document.getElementById('testBtn');
+      
+      try {
+        statusElement.textContent = '🔗 Proxy bağlantısı test ediliyor...';
+        testBtn.disabled = true;
+        
+        const response = await fetch(currentScriptUrl);
+        const data = await response.json();
+        
+        if (data.success || data.status === 'online') {
+          statusElement.textContent = '✅ Proxy bağlantısı başarılı!';
+          document.getElementById('result').innerHTML = '<div class="success">✅ Proxy çalışıyor! Taramayı başlatabilirsiniz.</div>';
+        } else {
+          statusElement.textContent = '⚠️ Proxy bağlantısı var ama hata: ' + data.message;
+        }
+        
+      } catch (error) {
+        statusElement.textContent = '❌ Proxy bağlantısı başarısız';
+        document.getElementById('result').innerHTML = '<div class="error">❌ Bu proxy çalışmıyor. Lütfen başka bir proxy seçin.</div>';
+      } finally {
+        testBtn.disabled = false;
+      }
+    }
+
+    async function testProxy() {
+      await testProxyConnection();
+    }
+
+    async function startScanner() {
+      if (isScanning) return;
+
+      const statusElement = document.getElementById('status');
+      const resultElement = document.getElementById('result');
+      
+      try {
+        statusElement.textContent = "📷 Kamera başlatılıyor...";
+        
+        const cameras = await Html5Qrcode.getCameras();
+        
+        if (cameras.length === 0) {
+          resultElement.innerHTML = '<div class="error">❌ Kamera bulunamadı!</div>';
+          return;
+        }
+
+        html5QrCode = new Html5Qrcode("reader");
+        
+        await html5QrCode.start(
+          cameras[0].id,
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          onScanSuccess,
+          onScanFailure
+        );
+
+        isScanning = true;
+        resultElement.innerHTML = '<div class="info">👆 QR kodu kameraya gösterin</div>';
+        document.getElementById('startBtn').disabled = true;
+        document.getElementById('stopBtn').disabled = false;
+        statusElement.textContent = '✅ Taramaya hazır';
+
+      } catch (err) {
+        console.error('Hata:', err);
+        resultElement.innerHTML = `<div class="error">❌ Kamera hatası: ${err.message}</div>`;
+        statusElement.textContent = '❌ Başlatılamadı';
+      }
+    }
+
+    async function onScanSuccess(decodedText, decodedResult) {
+      const resultElement = document.getElementById('result');
+      const studentId = decodedText.trim();
+      
+      resultElement.innerHTML = `<div class="info">🔄 İşleniyor: ${studentId}</div>`;
+      
+      try {
+        const response = await markMealAttendance(studentId);
+        
+        if (response.success) {
+          resultElement.innerHTML = `
+            <div class="success">
+              ✅ <strong>YEMEK KAYDI BAŞARILI!</strong>
+              <div class="student-info">
+                <strong>${response.data.studentName}</strong><br>
+                📚 ${response.data.className}<br>
+                📅 ${response.data.date} - ${response.data.timestamp}<br>
+                🆔 ${response.data.studentId}
+              </div>
+              <small>Google Sheets'e kaydedildi ✓</small>
+            </div>
+          `;
+        } else {
+          resultElement.innerHTML = `
+            <div class="error">
+              ❌ <strong>HATA!</strong><br>
+              ${response.message}
+            </div>
+          `;
+        }
+        
+      } catch (error) {
+        resultElement.innerHTML = `
+          <div class="error">
+            ❌ <strong>Proxy bağlantı hatası!</strong><br>
+            Lütfen başka bir proxy seçin ve tekrar deneyin.<br>
+            <small>Hata: ${error.message}</small>
+          </div>
+        `;
+      }
+
+      setTimeout(() => {
+        if (isScanning) {
+          resultElement.innerHTML = '<div class="info">👆 Yeni QR okutun</div>';
+        }
+      }, 5000);
+    }
+
+    function onScanFailure(error) {
+      // Hata mesajlarını gizle
+    }
+
+    async function markMealAttendance(studentId) {
+      const payload = {
+        studentId: studentId,
+        action: 'markMeal'
+      };
+      
+      const response = await fetch(currentScriptUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      return await response.json();
+    }
+
+    async function stopScanner() {
+      if (html5QrCode && isScanning) {
+        await html5QrCode.stop();
+        isScanning = false;
+        document.getElementById('result').innerHTML = '<div class="info">⏹️ Tarama durduruldu</div>';
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+        document.getElementById('status').textContent = 'Hazır';
+      }
+    }
+
+    // Sayfa yüklendiğinde
+    window.addEventListener('load', function() {
+      document.getElementById('status').textContent = 'Sistem hazır - Proxy seçin';
+      testProxyConnection();
+    });
+  </script>
+</body>
+</html>
