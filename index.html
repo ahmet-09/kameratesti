@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>QR Okuyucu Test</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
+  <style>
+    body { 
+      text-align: center; 
+      font-family: Arial, sans-serif; 
+      margin: 20px; 
+      background: #f5f5f5;
+    }
+    #reader { 
+      width: 100%;
+      max-width: 400px; 
+      margin: 20px auto;
+      border: 2px solid #333;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    #result { 
+      margin-top: 20px; 
+      padding: 15px;
+      font-weight: bold; 
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      max-width: 400px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .success { color: green; }
+    .error { color: red; }
+    .info { color: blue; }
+    button {
+      padding: 10px 20px;
+      margin: 10px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+  </style>
+</head>
+<body>
+  <h2>📷 QR Kod Okuyucu</h2>
+  <div id="reader"></div>
+  <div id="result" class="info">QR kodu okutmak için kamerayı açın...</div>
+  <button onclick="stopScanner()">❌ Taramayı Durdur</button>
+  <button onclick="startScanner()">🔄 Tekrar Başlat</button>
+
+  <script>
+    let html5QrCode;
+    let isScanning = false;
+
+    function onScanSuccess(decodedText, decodedResult) {
+      console.log(`QR okundu: ${decodedText}`, decodedResult);
+      
+      const resultElement = document.getElementById('result');
+      resultElement.innerHTML = `
+        <div class="success">
+          ✅ <strong>QR Kod Okundu!</strong><br>
+          <small>İçerik:</small><br>
+          <code>${decodedText}</code>
+        </div>
+      `;
+
+      // 2 saniye sonra tekrar taramaya hazır ol
+      setTimeout(() => {
+        resultElement.innerHTML = '<div class="info">✅ QR okundu! Yeni QR taramaya hazır...</div>';
+      }, 2000);
+    }
+
+    function onScanError(errorMessage) {
+      // Hata mesajlarını konsola yazdır ama kullanıcıya gösterme
+      console.log("QR Tarama hatası:", errorMessage);
+    }
+
+    async function startScanner() {
+      if (isScanning) {
+        alert("Zaten tarama yapılıyor!");
+        return;
+      }
+
+      const resultElement = document.getElementById('result');
+      resultElement.innerHTML = '<div class="info">📷 Kamera başlatılıyor...</div>';
+
+      try {
+        // Kameraları listele
+        const cameras = await Html5Qrcode.getCameras();
+        
+        if (cameras && cameras.length) {
+          html5QrCode = new Html5Qrcode("reader");
+          
+          // Kamerayı başlat
+          await html5QrCode.start(
+            cameras[0].id, 
+            {
+              fps: 10,
+              qrbox: { width: 250, height: 250 },
+              aspectRatio: 1.0
+            },
+            onScanSuccess,
+            onScanError
+          );
+          
+          isScanning = true;
+          resultElement.innerHTML = '<div class="info">👆 QR kodu kameraya gösterin</div>';
+          console.log("QR tarayıcı başlatıldı");
+          
+        } else {
+          resultElement.innerHTML = '<div class="error">❌ Hiç kamera bulunamadı!</div>';
+        }
+      } catch (err) {
+        console.error("Kamera başlatma hatası:", err);
+        resultElement.innerHTML = `<div class="error">❌ Hata: ${err.message}</div>`;
+      }
+    }
+
+    async function stopScanner() {
+      if (html5QrCode && isScanning) {
+        try {
+          await html5QrCode.stop();
+          isScanning = false;
+          document.getElementById('result').innerHTML = '<div class="info">⏹️ Tarama durduruldu</div>';
+          console.log("QR tarayıcı durduruldu");
+        } catch (err) {
+          console.error("Durdurma hatası:", err);
+        }
+      }
+    }
+
+    // Sayfa yüklendiğinde otomatik başlat
+    window.addEventListener('load', function() {
+      // Kullanıcı etkileşimi sonrası başlat (tarayıcı güvenlik politikası)
+      setTimeout(startScanner, 500);
+    });
+
+    // Sayfadan çıkarken taramayı durdur
+    window.addEventListener('beforeunload', function() {
+      if (html5QrCode && isScanning) {
+        html5QrCode.stop().catch(err => console.error(err));
+      }
+    });
+  </script>
+</body>
+</html>
